@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `pvectl qm config view`/`pvectl ct config view`: print a VM's/container's live config without opening `$EDITOR` (supports `-o json`)
+
 ## 0.3.0
 
 - Added `pvectl api get/post/put/delete <path>`: a raw Proxmox API escape hatch for endpoints with no dedicated pvectl command (e.g. `pvectl api get /access/users`), with a repeatable `--data key=value` flag for parameters (query string on `get`, form body otherwise) and the response printed as raw JSON
