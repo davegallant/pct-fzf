@@ -45,11 +45,21 @@ func (c *Client) statusAction(ctx context.Context, node string, vmid int, action
 // it again on target; live migration of a running container isn't
 // reliably available, so this is the standard way to move one that's up.
 // A stopped container needs neither restart nor any equivalent flag.
-func (c *Client) Migrate(ctx context.Context, node string, vmid int, target string, restart bool) (string, error) {
+//
+// targetStorage is `pct migrate --target-storage`: empty means "same
+// storage ID on the target" (Proxmox's default, and the only thing that
+// works when both nodes share the storage layout), while a non-empty
+// value moves the volumes onto different storage there. It's passed
+// through verbatim, so both forms Proxmox accepts work — a bare storage
+// ID (`local-lvm`, every volume) or a `source:target,...` mapping.
+func (c *Client) Migrate(ctx context.Context, node string, vmid int, target string, restart bool, targetStorage string) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/lxc/%d/migrate", node, vmid)
 	form := url.Values{"target": {target}}
 	if restart {
 		form.Set("restart", "1")
+	}
+	if targetStorage != "" {
+		form.Set("target-storage", targetStorage)
 	}
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }

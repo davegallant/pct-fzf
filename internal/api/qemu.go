@@ -82,11 +82,23 @@ func (c *Client) statusVMAction(ctx context.Context, node string, vmid int, acti
 // performs a true live migration (memory copied while the guest keeps
 // running), unlike Migrate's LXC restart-based approach. A stopped VM
 // needs no online flag; Proxmox just relocates its config/disks.
-func (c *Client) MigrateVM(ctx context.Context, node string, vmid int, target string, online bool) (string, error) {
+// targetStorage is `qm migrate --targetstorage` — see Migrate's comment
+// for the accepted forms; QEMU spells the parameter without the LXC
+// side's dash. Migrating a *running* VM's local disks onto different
+// storage is a live storage migration, which Proxmox only performs when
+// `with-local-disks` is set too, so that's sent alongside rather than
+// left to the caller (the web UI does the same).
+func (c *Client) MigrateVM(ctx context.Context, node string, vmid int, target string, online bool, targetStorage string) (string, error) {
 	path := fmt.Sprintf("/nodes/%s/qemu/%d/migrate", node, vmid)
 	form := url.Values{"target": {target}}
 	if online {
 		form.Set("online", "1")
+	}
+	if targetStorage != "" {
+		form.Set("targetstorage", targetStorage)
+		if online {
+			form.Set("with-local-disks", "1")
+		}
 	}
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }

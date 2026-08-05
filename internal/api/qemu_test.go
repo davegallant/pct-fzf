@@ -178,7 +178,7 @@ func TestClientMigrateVM(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@pve!test", "secret", true)
-	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", true); err != nil {
+	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", true, ""); err != nil {
 		t.Fatalf("MigrateVM() error = %v", err)
 	}
 	if gotPath != "/api2/json/nodes/pve1/qemu/201/migrate" {
@@ -199,11 +199,41 @@ func TestClientMigrateVMStoppedOmitsOnline(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@pve!test", "secret", true)
-	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", false); err != nil {
+	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", false, ""); err != nil {
 		t.Fatalf("MigrateVM() error = %v", err)
 	}
 	if gotBody != "target=pve2" {
 		t.Errorf("request body = %q, want target=pve2 (no online param)", gotBody)
+	}
+}
+
+// TestClientMigrateVMTargetStorage pins the two things QEMU does
+// differently from LXC when the storage differs: the parameter has no
+// dash (`targetstorage`), and a running VM additionally needs
+// with-local-disks — which must *not* appear for a stopped one, where
+// Proxmox rejects it.
+func TestClientMigrateVMTargetStorage(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", true, "local-lvm"); err != nil {
+		t.Fatalf("MigrateVM() error = %v", err)
+	}
+	if gotBody != "online=1&target=pve2&targetstorage=local-lvm&with-local-disks=1" {
+		t.Errorf("request body = %q, want online=1&target=pve2&targetstorage=local-lvm&with-local-disks=1", gotBody)
+	}
+
+	if _, err := client.MigrateVM(context.Background(), "pve1", 201, "pve2", false, "local-lvm"); err != nil {
+		t.Fatalf("MigrateVM() error = %v", err)
+	}
+	if gotBody != "target=pve2&targetstorage=local-lvm" {
+		t.Errorf("request body = %q, want target=pve2&targetstorage=local-lvm (no with-local-disks)", gotBody)
 	}
 }
 

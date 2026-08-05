@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `--target-storage` to `pvectl ct migrate`/`pvectl qm migrate`: migrate to a node whose storage IDs differ from the source (e.g. `pvectl ct migrate 101 --target pve-apollo --target-storage local-lvm`), accepting either a single storage ID or a `source:target,...` mapping. Matches `pct migrate --target-storage`/`qm migrate --targetstorage`; for a running VM, `with-local-disks` is sent automatically so its local disks migrate live
 - Added `pvectl qm config view`/`pvectl ct config view`: print a VM's/container's live config without opening `$EDITOR` (supports `-o json`)
 
 ## 0.3.0

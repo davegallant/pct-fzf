@@ -144,20 +144,27 @@ func runBackup(client *api.Client, c api.Container) error {
 // given. The direct `ct migrate <name-or-vmid> --target <node>` form
 // (ctMigrateCmd in migrate.go) resolves the target some other way and
 // calls runMigrate directly instead, so it never touches stdin.
-func runMigrateWithPrompt(client *api.Client, c api.Container) error {
+func runMigrateWithPrompt(client *api.Client, c api.Container, targetStorage string) error {
 	printRestartNotice(c)
 	target, err := promptTargetNode(client, c.Node)
 	if err != nil {
 		return err
 	}
-	return runMigrate(client, c, target)
+	return runMigrate(client, c, target, targetStorage)
 }
 
-func runMigrate(client *api.Client, c api.Container, target string) error {
+// runMigrate migrates c to target, optionally onto different storage
+// there (targetStorage, empty for Proxmox's same-storage-ID default). The
+// storage only shows up in the progress label when it was asked for, so
+// the common same-storage migrate reads exactly as it did before.
+func runMigrate(client *api.Client, c api.Container, target, targetStorage string) error {
 	restart := c.Status == "running"
 	label := fmt.Sprintf("migrating %s (%d) to %s", c.Name, c.VMID, target)
+	if targetStorage != "" {
+		label += fmt.Sprintf(" (storage %s)", targetStorage)
+	}
 
-	upid, err := client.Migrate(context.Background(), c.Node, c.VMID, target, restart)
+	upid, err := client.Migrate(context.Background(), c.Node, c.VMID, target, restart, targetStorage)
 	if err != nil {
 		return fmt.Errorf("migrating %s (%d): %w", c.Name, c.VMID, err)
 	}

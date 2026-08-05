@@ -162,6 +162,18 @@ These were each found via live debugging against a real Proxmox cluster
   field from Proxmox's API that turns out to have the same inconsistency,
   rather than assuming a field's JSON type is stable across storage
   plugins.
+- **The migrate API spells target-storage differently per guest type**:
+  LXC's `/nodes/{node}/lxc/{vmid}/migrate` takes `target-storage`, QEMU's
+  `/nodes/{node}/qemu/{vmid}/migrate` takes `targetstorage` (no dash) —
+  matching `pct migrate --target-storage` vs `qm migrate --targetstorage`.
+  pvectl exposes one `--target-storage` flag on both and translates.
+  Moving a *running* VM's local disks to different storage also needs
+  `with-local-disks=1`; `MigrateVM` sends it automatically alongside
+  `targetstorage` when the VM is online (and must not send it when the VM
+  is stopped, where Proxmox rejects it). The flag value is passed through
+  unvalidated on purpose — Proxmox accepts both a bare storage ID and a
+  `source:target,...` mapping, so the "is this in the target node's
+  storage list" check that guards `--target` can't be applied here.
 - **A Proxmox task's `exitstatus` can be a bare, undescriptive string**
   (e.g. `WARNINGS: 1` from a `vzcreate` task, no further detail in the
   status reply itself) — confirmed via a real `ct create` whose only

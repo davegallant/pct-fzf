@@ -169,6 +169,18 @@ Containers and VMs can be migrated to another node in the cluster with `pvectl c
 > of a running container isn't reliably available); a running VM is live
 > migrated with no downtime.
 
+By default the guest's volumes land on the storage with the same ID on the
+target node. When the nodes don't share storage IDs, name the target
+node's storage with `--target-storage` (equivalent to `pct migrate
+--target-storage` / `qm migrate --targetstorage`):
+
+```sh
+pvectl ct migrate 101 --target pve-apollo --target-storage local-lvm
+```
+
+A `source:target,...` mapping works too, to send different source storages
+to different places (e.g. `--target-storage local-lvm:fast,backup:bulk`).
+
 ### Snapshots
 
 Snapshots can be created, listed, deleted, and rolled back with `pvectl ct snapshots` and `pvectl qm snapshots`.

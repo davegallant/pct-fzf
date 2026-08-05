@@ -463,7 +463,7 @@ func TestClientMigrate(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@pve!test", "secret", true)
-	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", true); err != nil {
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", true, ""); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}
 	if gotPath != "/api2/json/nodes/pve1/lxc/101/migrate" {
@@ -484,11 +484,40 @@ func TestClientMigrateStoppedOmitsRestart(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@pve!test", "secret", true)
-	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", false); err != nil {
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", false, ""); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}
 	if gotBody != "target=pve2" {
 		t.Errorf("request body = %q, want target=pve2 (no restart param)", gotBody)
+	}
+}
+
+// TestClientMigrateTargetStorage covers migrating between nodes whose
+// storage IDs differ (`pct migrate --target-storage`): the storage rides
+// along with restart, and a source:target mapping is passed through
+// verbatim rather than being parsed or split up on the way out.
+func TestClientMigrateTargetStorage(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:..."})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", true, "local-lvm"); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	if gotBody != "restart=1&target=pve2&target-storage=local-lvm" {
+		t.Errorf("request body = %q, want restart=1&target=pve2&target-storage=local-lvm", gotBody)
+	}
+
+	if _, err := client.Migrate(context.Background(), "pve1", 101, "pve2", false, "local:local-lvm"); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	if gotBody != "target=pve2&target-storage=local%3Alocal-lvm" {
+		t.Errorf("request body = %q, want the source:target mapping passed through", gotBody)
 	}
 }
 

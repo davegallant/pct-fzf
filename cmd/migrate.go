@@ -125,6 +125,7 @@ func printRestartNotice(c api.Container) {
 }
 
 var ctMigrateTarget string
+var ctMigrateTargetStorage string
 
 var ctMigrateCmd = &cobra.Command{
 	Use:               "migrate <name-or-vmid>",
@@ -137,7 +138,7 @@ var ctMigrateCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runCtMigrate(client, args, ctMigrateTarget)
+		return runCtMigrate(client, args, ctMigrateTarget, ctMigrateTargetStorage)
 	},
 }
 
@@ -146,7 +147,14 @@ var ctMigrateCmd = &cobra.Command{
 // comes from a flag (validated, non-interactive) or an interactive prompt
 // (runMigrateWithPrompt). Split out from RunE so it's testable with a
 // fake client, independent of loadClient/config state.
-func runCtMigrate(client *api.Client, args []string, target string) error {
+//
+// targetStorage (--target-storage) is orthogonal to that branching: it's
+// carried through both paths untouched, so it works with an interactively
+// picked node too. It's deliberately *not* validated against the target
+// node's storage list the way target is — Proxmox also accepts a
+// `source:target,...` mapping, which no name-in-a-list check would
+// recognize, so an unknown storage ID is left for the API to reject.
+func runCtMigrate(client *api.Client, args []string, target, targetStorage string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("a container name or vmid is required")
 	}
@@ -156,16 +164,17 @@ func runCtMigrate(client *api.Client, args []string, target string) error {
 		return err
 	}
 	if target == "" {
-		return runMigrateWithPrompt(client, c)
+		return runMigrateWithPrompt(client, c, targetStorage)
 	}
 	if err := validateTargetNode(client, c.Node, target); err != nil {
 		return err
 	}
 	printRestartNotice(c)
-	return runMigrate(client, c, target)
+	return runMigrate(client, c, target, targetStorage)
 }
 
 var qmMigrateTarget string
+var qmMigrateTargetStorage string
 
 var qmMigrateCmd = &cobra.Command{
 	Use:               "migrate <name-or-vmid>",
@@ -178,12 +187,12 @@ var qmMigrateCmd = &cobra.Command{
 		if err != nil {
 			return friendlySetupError(err)
 		}
-		return runQmMigrate(client, args, qmMigrateTarget)
+		return runQmMigrate(client, args, qmMigrateTarget, qmMigrateTargetStorage)
 	},
 }
 
 // runQmMigrate is runCtMigrate's mirror for QEMU VMs.
-func runQmMigrate(client *api.Client, args []string, target string) error {
+func runQmMigrate(client *api.Client, args []string, target, targetStorage string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("a VM name or vmid is required")
 	}
@@ -193,19 +202,28 @@ func runQmMigrate(client *api.Client, args []string, target string) error {
 		return err
 	}
 	if target == "" {
-		return runMigrateVMWithPrompt(client, v)
+		return runMigrateVMWithPrompt(client, v, targetStorage)
 	}
 	if err := validateTargetNode(client, v.Node, target); err != nil {
 		return err
 	}
-	return runMigrateVM(client, v, target)
+	return runMigrateVM(client, v, target, targetStorage)
 }
+
+// targetStorageUsage describes --target-storage identically for ct and
+// qm — the two guest types spell the underlying API parameter
+// differently (`target-storage` vs `targetstorage`), but the flag and
+// what it accepts are the same on both, so the help text is too.
+const targetStorageUsage = "storage on the target node for the guest's volumes, e.g. local-lvm " +
+	"or a source:target,... mapping (default: the same storage ID as on the source node)"
 
 func init() {
 	ctMigrateCmd.Flags().StringVar(&ctMigrateTarget, "target", "", "node to migrate to (skips the interactive prompt when set)")
+	ctMigrateCmd.Flags().StringVar(&ctMigrateTargetStorage, "target-storage", "", targetStorageUsage)
 	ctCmd.AddCommand(ctMigrateCmd)
 
 	qmMigrateCmd.Flags().StringVar(&qmMigrateTarget, "target", "", "node to migrate to (skips the interactive prompt when set)")
+	qmMigrateCmd.Flags().StringVar(&qmMigrateTargetStorage, "target-storage", "", targetStorageUsage)
 	qmCmd.AddCommand(qmMigrateCmd)
 }
 

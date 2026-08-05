@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -173,7 +174,7 @@ func TestRunCtMigratePromptsForTargetWithArg(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
-	err := runCtMigrate(client, []string{"web01"}, "")
+	err := runCtMigrate(client, []string{"web01"}, "", "")
 	if err == nil || !strings.Contains(err.Error(), "no other cluster nodes") {
 		t.Errorf("runCtMigrate() error = %v, want the promptTargetNode 'no other nodes' error", err)
 	}
@@ -184,7 +185,7 @@ func TestRunCtMigratePromptsForTargetWithArg(t *testing.T) {
 // silently falling back to the interactive picker.
 func TestRunCtMigrateRejectsTargetWithoutArg(t *testing.T) {
 	client := api.NewClient("https://unused.invalid:8006", "user@pve!test", "secret", true)
-	if err := runCtMigrate(client, nil, "pve2"); err == nil {
+	if err := runCtMigrate(client, nil, "pve2", ""); err == nil {
 		t.Error("runCtMigrate() error = nil, want an error when --target is set without an argument")
 	}
 }
@@ -219,11 +220,49 @@ func TestRunCtMigrateDirectPath(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
-	if err := runCtMigrate(client, []string{"web01"}, "pve2"); err != nil {
+	if err := runCtMigrate(client, []string{"web01"}, "pve2", ""); err != nil {
 		t.Fatalf("runCtMigrate() error = %v", err)
 	}
 	if gotPath != "/api2/json/nodes/pve1/lxc/101/migrate" {
 		t.Errorf("migrate request path = %q, want /api2/json/nodes/pve1/lxc/101/migrate", gotPath)
+	}
+}
+
+// TestRunCtMigrateTargetStorage proves --target-storage survives the
+// whole cmd-layer path (flag → runCtMigrate → runMigrate → client) and
+// lands in the migrate request body, which is the point of the flag:
+// nodes whose storage IDs don't match can't be migrated between without
+// it.
+func TestRunCtMigrateTargetStorage(t *testing.T) {
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api2/json/cluster/resources":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
+					{"type": "node", "node": "pve1", "status": "online"},
+					{"type": "node", "node": "pve2", "status": "online"},
+					{"type": "lxc", "vmid": 101, "name": "web01", "node": "pve1", "status": "stopped"},
+				},
+			})
+		case strings.HasSuffix(r.URL.Path, "/migrate"):
+			body, _ := io.ReadAll(r.Body)
+			gotBody = string(body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": "UPID:pve1:..."})
+		case strings.Contains(r.URL.Path, "/tasks/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"status": "stopped", "exitstatus": "OK"}})
+		default:
+			t.Errorf("unexpected request path = %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := runCtMigrate(client, []string{"web01"}, "pve2", "local-lvm"); err != nil {
+		t.Fatalf("runCtMigrate() error = %v", err)
+	}
+	if !strings.Contains(gotBody, "target-storage=local-lvm") {
+		t.Errorf("migrate request body = %q, want it to carry target-storage=local-lvm", gotBody)
 	}
 }
 
@@ -245,7 +284,7 @@ func TestRunCtMigrateDirectPathRejectsUnknownTarget(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
-	if err := runCtMigrate(client, []string{"web01"}, "not-a-real-node"); err == nil {
+	if err := runCtMigrate(client, []string{"web01"}, "not-a-real-node", ""); err == nil {
 		t.Error("runCtMigrate() error = nil, want an error for an invalid --target")
 	}
 	if migrateCalled {

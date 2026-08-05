@@ -154,22 +154,27 @@ func runBackupVM(client *api.Client, v api.VM) error {
 // given. The direct `qm migrate <name-or-vmid> --target <node>` form
 // (qmMigrateCmd in migrate.go) resolves the target some other way and
 // calls runMigrateVM directly instead, so it never touches stdin.
-func runMigrateVMWithPrompt(client *api.Client, v api.VM) error {
+func runMigrateVMWithPrompt(client *api.Client, v api.VM, targetStorage string) error {
 	target, err := promptTargetNode(client, v.Node)
 	if err != nil {
 		return err
 	}
-	return runMigrateVM(client, v, target)
+	return runMigrateVM(client, v, target, targetStorage)
 }
 
-func runMigrateVM(client *api.Client, v api.VM, target string) error {
+// runMigrateVM is runMigrate's mirror for QEMU VMs — see its comment for
+// how targetStorage is treated.
+func runMigrateVM(client *api.Client, v api.VM, target, targetStorage string) error {
 	online := v.Status == "running"
 	label := fmt.Sprintf("migrating %s (%d) to %s", v.Name, v.VMID, target)
 	if online {
 		label += " (live)"
 	}
+	if targetStorage != "" {
+		label += fmt.Sprintf(" (storage %s)", targetStorage)
+	}
 
-	upid, err := client.MigrateVM(context.Background(), v.Node, v.VMID, target, online)
+	upid, err := client.MigrateVM(context.Background(), v.Node, v.VMID, target, online, targetStorage)
 	if err != nil {
 		return fmt.Errorf("migrating %s (%d): %w", v.Name, v.VMID, err)
 	}
