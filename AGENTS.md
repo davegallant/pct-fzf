@@ -229,6 +229,20 @@ These were each found via live debugging against a real Proxmox cluster
   surfaced as-is (same "let SSH's own error output speak for itself"
   policy as `ct enter`). This is a real UX gap versus `ct enter` (which
   always works for LXC), not something pvectl can paper over.
+- `pvectl qm exec` is deliberately not `ct exec`'s equal. `ct exec` streams
+  live over SSH with a tty; `qm exec` goes through the QEMU guest agent,
+  whose API is fire-and-poll (`POST .../agent/exec` returns a guest pid,
+  then `GET .../agent/exec-status?pid=` is polled until `exited`). That
+  means no stdin, no tty, and no output at all until the command exits —
+  a property of Proxmox's API, not a pvectl gap, and documented rather
+  than papered over with a fake stream. Two non-obvious details confirmed
+  against PVE 9.2 rather than assumed: `command` must be sent as repeated
+  `command=` params (one per argv element — a single joined string is
+  rejected with HTTP 596), and the agent's *info* commands are `GET
+  /agent/{cmd}` while `exec` alone is a POST. There's also no shell in the
+  loop, so shell syntax needs an explicit `sh -c`; and no remote-path
+  argument completion (ct exec gets that by SSHing to the node and running
+  `ls`, which has no agent equivalent worth a round trip per Tab press).
 - `pvectl qm create`'s cloud-init flags cannot be combined with `--iso`:
   the cloud-init drive and an install ISO both occupy `ide2`. Rejected up
   front by flag name rather than silently reassigning the bus, because a

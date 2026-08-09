@@ -315,6 +315,23 @@ use `pvectl ct exec <name-or-vmid> -- <command...>`. Tab completion for the
 command's own arguments SSHes into the container and lists matching remote
 paths (e.g. `pvectl ct exec <name-or-vmid> -- cat docker-comp<TAB>`).
 
+VMs have `pvectl qm exec <name-or-vmid> -- <command...>`, which runs
+through the QEMU guest agent instead of SSH:
+
+```console
+$ pvectl qm exec homeassistant -- uname -r
+6.18.37-haos
+```
+
+> [!NOTE]
+> `qm exec` is not `ct exec`'s equal, and can't be. Proxmox's guest-agent
+> API is fire-and-poll: there's no stdin, no tty, and no output until the
+> command exits, so interactive or long-running commands aren't a fit
+> (`--timeout`, default 30s, bounds the wait). The command is passed as
+> argv with no shell involved, so shell syntax needs an explicit
+> `sh -c '...'`. Requires the guest agent enabled on the VM
+> (`qm set <vmid> --agent 1`) and running inside the guest.
+
 ### Raw config passthrough
 
 Raw `lxc.*` config lines (cgroup device rules, bind mounts, and anything
