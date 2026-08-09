@@ -229,6 +229,26 @@ These were each found via live debugging against a real Proxmox cluster
   surfaced as-is (same "let SSH's own error output speak for itself"
   policy as `ct enter`). This is a real UX gap versus `ct enter` (which
   always works for LXC), not something pvectl can paper over.
+- `pvectl qm create`'s cloud-init flags cannot be combined with `--iso`:
+  the cloud-init drive and an install ISO both occupy `ide2`. Rejected up
+  front by flag name rather than silently reassigning the bus, because a
+  cloud-init VM boots an imported cloud image rather than installing from
+  ISO — the two are different workflows, not two options on one. Note
+  `sshkeys` is URL-encoded by `CreateVM` *before* form encoding escapes it
+  again; Proxmox stores and expects that field double-encoded, and sending
+  the raw key round-trips to a mangled `authorized_keys`. `escapeSSHKeys`
+  exists rather than a bare `url.QueryEscape` because QueryEscape encodes a
+  space as `+`, and Proxmox decodes this field with Perl's
+  `URI::Escape::uri_unescape`, which expands `%XX` but leaves `+`
+  alone — so every space in a key would arrive as a literal plus sign.
+  Base64 `+` inside key material is already `%2B` by then, so rewriting
+  `+`→`%20` is safe.
+- The two `create` commands' SSH-key flags are named differently on
+  purpose: `ct create --ssh-public-key-file` vs `qm create --sshkeys`.
+  Each matches its own Proxmox API parameter (`ssh-public-keys` for LXC,
+  `sshkeys` for QEMU), which are themselves differently named upstream.
+  Matching Proxmox won out over ct/qm mirroring here, since a user
+  cross-referencing Proxmox docs is the likelier case.
 - Tags are display-and-set only: `--tags` at create time, a row in
   `summary`, a column in `list`, and editable through `config edit` (which
   round-trips the whole config already). There is deliberately no

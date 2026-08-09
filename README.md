@@ -201,7 +201,22 @@ with `pvectl qm create`. Unlike `ct create`'s required OS template,
 empty reply to skip it and create a disk-only VM (e.g. for a later disk
 import).
 
-Both accept `--tags` (comma-separated) to tag the new guest.
+Both accept `--tags` (comma-separated) to tag the new guest. `qm create`
+also takes cloud-init settings — `--ciuser`, `--cipassword`, `--sshkeys
+<file>`, and `--ipconfig0` — which provision a cloud-init drive:
+
+```sh
+pvectl qm create --name web01 --ciuser debian \
+  --sshkeys ~/.ssh/id_ed25519.pub --ipconfig0 ip=dhcp
+```
+
+Pass `--cipassword -` to be prompted for the password instead of putting
+it in your shell history.
+
+> [!NOTE]
+> Cloud-init cannot be combined with `--iso` — both occupy `ide2`, and a
+> cloud-init VM boots an imported cloud image rather than installing from
+> an ISO.
 
 ### Console access
 

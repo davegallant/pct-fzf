@@ -125,6 +125,39 @@ type CreateVMParams struct {
 	// Tags is the semicolon-separated form Proxmox expects; callers pass
 	// user input through NormalizeTags first.
 	Tags string
+	// Cloud-init settings. Any of these being set makes the VM
+	// cloud-init-enabled, which provisions a cloudinit drive on ide2 —
+	// mutually exclusive with ISO, which wants the same bus slot. The
+	// command layer rejects that combination before reaching here.
+	CIUser     string
+	CIPassword string
+	SSHKeys    string
+	IPConfig0  string
+}
+
+// HasCloudInit reports whether any cloud-init parameter is set, i.e.
+// whether CreateVM will provision a cloudinit drive. Exported so the
+// command layer can enforce the ISO mutual exclusion against exactly the
+// same condition CreateVM acts on, rather than a second, drifting copy.
+func (p CreateVMParams) HasCloudInit() bool {
+	return p.CIUser != "" || p.CIPassword != "" || p.SSHKeys != "" || p.IPConfig0 != ""
+}
+
+// escapeSSHKeys percent-encodes an authorized_keys blob the way Proxmox
+// expects the sshkeys parameter: the field is stored URL-encoded, so the
+// value is escaped here *before* form encoding escapes it again. Sending
+// the raw key round-trips to a mangled authorized_keys.
+//
+// url.QueryEscape alone is wrong. It encodes a space as "+", but Proxmox
+// decodes this field with Perl's URI::Escape::uri_unescape, which only
+// expands %XX and leaves "+" untouched — so every space in a key (the two
+// separating the type, the base64 body, and the comment) would arrive as
+// a literal plus sign. Rewriting "+" to %20 keeps spaces intact; the "+"
+// characters that legitimately occur inside base64 key material are
+// already encoded as %2B by QueryEscape, so they are not affected by the
+// rewrite.
+func escapeSSHKeys(keys string) string {
+	return strings.ReplaceAll(url.QueryEscape(keys), "+", "%20")
 }
 
 // CreateVM creates a new QEMU VM on node, returning the Proxmox task
@@ -145,11 +178,30 @@ func (c *Client) CreateVM(ctx context.Context, node string, p CreateVMParams) (s
 		"scsihw": {p.SCSIHW},
 		"ostype": {p.OSType},
 	}
-	if p.ISO != "" {
+	switch {
+	case p.ISO != "":
 		form.Set("ide2", fmt.Sprintf("%s,media=cdrom", p.ISO))
 		form.Set("boot", "order=ide2;scsi0")
-	} else {
+	case p.HasCloudInit():
+		// A cloud-init VM boots the (already provisioned) disk; the
+		// cloudinit drive is config data Proxmox regenerates, not boot
+		// media, so it stays out of the boot order.
+		form.Set("ide2", fmt.Sprintf("%s:cloudinit", p.Storage))
 		form.Set("boot", "order=scsi0")
+	default:
+		form.Set("boot", "order=scsi0")
+	}
+	if p.CIUser != "" {
+		form.Set("ciuser", p.CIUser)
+	}
+	if p.CIPassword != "" {
+		form.Set("cipassword", p.CIPassword)
+	}
+	if p.SSHKeys != "" {
+		form.Set("sshkeys", escapeSSHKeys(p.SSHKeys))
+	}
+	if p.IPConfig0 != "" {
+		form.Set("ipconfig0", p.IPConfig0)
 	}
 	if p.Tags != "" {
 		form.Set("tags", p.Tags)

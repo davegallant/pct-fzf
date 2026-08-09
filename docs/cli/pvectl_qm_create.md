@@ -9,20 +9,24 @@ pvectl qm create [flags]
 ### Options
 
 ```
-      --cores int        CPU cores (default 1)
-      --disk-size int    disk size in GB (default 32)
-  -h, --help             help for create
-      --iso string       ISO volid to attach as install media, e.g. local:iso/ubuntu-24.04.iso (optional; prompts if omitted — press enter to skip and create a disk-only VM)
-      --memory int       memory in MB (default 2048)
-      --name string      VM name (prompts if omitted)
-      --net0 string      network interface config (Proxmox net0 syntax) (default "virtio,bridge=vmbr0")
-      --node string      node to create the VM on (prompts if omitted)
-      --ostype string    guest OS type, e.g. l26, win11 (see Proxmox docs) (default "l26")
-      --scsihw string    SCSI controller type (default "virtio-scsi-pci")
-      --start            start the VM after creating it (prompts if omitted)
-      --storage string   storage for the VM's disk (prompts if omitted)
-      --tags string      comma-separated tags to apply, e.g. media,arr (optional)
-      --vmid int         VM ID (0 = auto-assign the next free ID)
+      --cipassword string   cloud-init user's password; pass "-" to read it from stdin without echo (optional)
+      --ciuser string       cloud-init user to create (optional; implies a cloud-init drive, cannot be combined with --iso)
+      --cores int           CPU cores (default 1)
+      --disk-size int       disk size in GB (default 32)
+  -h, --help                help for create
+      --ipconfig0 string    cloud-init network config, e.g. ip=dhcp or ip=10.0.0.5/24,gw=10.0.0.1 (optional)
+      --iso string          ISO volid to attach as install media, e.g. local:iso/ubuntu-24.04.iso (optional; prompts if omitted — press enter to skip and create a disk-only VM)
+      --memory int          memory in MB (default 2048)
+      --name string         VM name (prompts if omitted)
+      --net0 string         network interface config (Proxmox net0 syntax) (default "virtio,bridge=vmbr0")
+      --node string         node to create the VM on (prompts if omitted)
+      --ostype string       guest OS type, e.g. l26, win11 (see Proxmox docs) (default "l26")
+      --scsihw string       SCSI controller type (default "virtio-scsi-pci")
+      --sshkeys string      path to an SSH public key file to authorize for the cloud-init user (optional)
+      --start               start the VM after creating it (prompts if omitted)
+      --storage string      storage for the VM's disk (prompts if omitted)
+      --tags string         comma-separated tags to apply, e.g. media,arr (optional)
+      --vmid int            VM ID (0 = auto-assign the next free ID)
 ```
 
 ### Options inherited from parent commands
