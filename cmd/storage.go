@@ -54,7 +54,8 @@ func renderStorageReport(storages []api.StorageResource) string {
 	var buf strings.Builder
 	renderStorageTable(&buf, storage)
 	if warnings := renderStorageWarnings(storage); warnings != "" {
-		buf.WriteString("\n" + warnings)
+		buf.WriteString("\n")
+		buf.WriteString(warnings)
 	}
 	return buf.String()
 }

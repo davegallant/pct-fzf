@@ -243,6 +243,21 @@ These were each found via live debugging against a real Proxmox cluster
   loop, so shell syntax needs an explicit `sh -c`; and no remote-path
   argument completion (ct exec gets that by SSHing to the node and running
   `ls`, which has no agent equivalent worth a round trip per Tab press).
+- Guest-agent detection parses the config's `agent` property string via
+  `api.AgentEnabled`, not a prefix check. Proxmox writes it three ways —
+  `1`, `enabled=1`, or either followed by options like
+  `1,fstrim_cloned_disks=1` — and its own GUI toggle produces `enabled=1`,
+  which an earlier `strings.HasPrefix(field, "1")` in `qm summary` missed,
+  reporting `Guest Agent no` for VMs that had it on. Both `qm summary` and
+  `qm exec` share the one parser so the two can't drift.
+- Tags are display-and-set only: `--tags` at create time, a row in
+  `summary`, a column in `list`, and editable through `config edit` (which
+  round-trips the whole config already). There is deliberately no
+  `--tag` filter on `list` or any bulk operation — that would cross the
+  "no filtering/sorting flags" line above. The `TAGS` column is rendered
+  only when at least one guest in the result set is tagged, since most
+  guests on a typical cluster are untagged and an always-on column would
+  be near-empty whitespace.
 - `pvectl qm create`'s cloud-init flags cannot be combined with `--iso`:
   the cloud-init drive and an install ISO both occupy `ide2`. Rejected up
   front by flag name rather than silently reassigning the bus, because a
@@ -263,14 +278,6 @@ These were each found via live debugging against a real Proxmox cluster
   `sshkeys` for QEMU), which are themselves differently named upstream.
   Matching Proxmox won out over ct/qm mirroring here, since a user
   cross-referencing Proxmox docs is the likelier case.
-- Tags are display-and-set only: `--tags` at create time, a row in
-  `summary`, a column in `list`, and editable through `config edit` (which
-  round-trips the whole config already). There is deliberately no
-  `--tag` filter on `list` or any bulk operation — that would cross the
-  "no filtering/sorting flags" line above. The `TAGS` column is rendered
-  only when at least one guest in the result set is tagged, since most
-  guests on a typical cluster are untagged and an always-on column would
-  be near-empty whitespace.
 - `enter`'s SSH target is whatever Proxmox reports as the node's name
   (e.g. `pve-g3-2`) — pvectl does not store or manage SSH connection details
   itself; it relies entirely on the user's own `~/.ssh/config` (or DNS)

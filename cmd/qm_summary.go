@@ -87,7 +87,7 @@ func vmSummaryJSON(v api.VM, status api.VMStatus, config api.VMConfig, interface
 		HAState:    ha,
 		HAManaged:  haManaged,
 		Tags:       v.Tags,
-		Agent:      strings.HasPrefix(config.Fields["agent"], "1"),
+		Agent:      api.AgentEnabled(config.Fields["agent"]),
 		CPU:        status.CPU,
 		CPUs:       status.CPUs,
 		Mem:        status.Mem,
@@ -114,7 +114,7 @@ func renderVMSummary(v api.VM, status api.VMStatus, config api.VMConfig, interfa
 		ha = haState
 	}
 	agent := "no"
-	if strings.HasPrefix(config.Fields["agent"], "1") {
+	if api.AgentEnabled(config.Fields["agent"]) {
 		agent = "yes"
 	}
 

@@ -55,14 +55,7 @@ func (c *Client) ListAppliances(ctx context.Context, node string) ([]Appliance, 
 
 	appliances := make([]Appliance, 0, len(resp.Data))
 	for _, e := range resp.Data {
-		appliances = append(appliances, Appliance{
-			Template: e.Template,
-			OS:       e.OS,
-			Version:  e.Version,
-			Section:  e.Section,
-			Headline: e.Headline,
-			Type:     e.Type,
-		})
+		appliances = append(appliances, Appliance(e))
 	}
 	sort.Slice(appliances, func(i, j int) bool { return appliances[i].Template < appliances[j].Template })
 	return appliances, nil

@@ -114,10 +114,14 @@ func runQmExec(client *api.Client, v api.VM, command []string) error {
 	}
 
 	if result.OutData != "" {
-		fmt.Fprint(os.Stdout, result.OutData)
+		if _, err := fmt.Fprint(os.Stdout, result.OutData); err != nil {
+			return err
+		}
 	}
 	if result.ErrData != "" {
-		fmt.Fprint(os.Stderr, result.ErrData)
+		if _, err := fmt.Fprint(os.Stderr, result.ErrData); err != nil {
+			return err
+		}
 	}
 	if result.OutTruncated {
 		fmt.Fprintln(os.Stderr, "warning: stdout was truncated by the guest agent")
