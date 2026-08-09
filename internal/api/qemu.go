@@ -16,6 +16,8 @@ type VM struct {
 	Name   string `json:"name"`
 	Node   string `json:"node"`
 	Status string `json:"status"`
+	// Tags is never nil — see Container.Tags.
+	Tags []string `json:"tags"`
 }
 
 // ListVMs returns every QEMU VM across the cluster, sorted by VMID
@@ -37,6 +39,7 @@ func (c *Client) ListVMs(ctx context.Context) ([]VM, error) {
 			Name:   r.Name,
 			Node:   r.Node,
 			Status: r.Status,
+			Tags:   parseTags(r.Tags),
 		})
 	}
 	sort.Slice(vms, func(i, j int) bool {
@@ -119,6 +122,9 @@ type CreateVMParams struct {
 	SCSIHW     string
 	OSType     string
 	ISO        string
+	// Tags is the semicolon-separated form Proxmox expects; callers pass
+	// user input through NormalizeTags first.
+	Tags string
 }
 
 // CreateVM creates a new QEMU VM on node, returning the Proxmox task
@@ -144,6 +150,9 @@ func (c *Client) CreateVM(ctx context.Context, node string, p CreateVMParams) (s
 		form.Set("boot", "order=ide2;scsi0")
 	} else {
 		form.Set("boot", "order=scsi0")
+	}
+	if p.Tags != "" {
+		form.Set("tags", p.Tags)
 	}
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }

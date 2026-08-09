@@ -28,6 +28,7 @@ var (
 	ctCreateArch         string
 	ctCreatePassword     string
 	ctCreateSSHKeyFile   string
+	ctCreateTags         string
 	ctCreateStart        bool
 )
 
@@ -60,6 +61,7 @@ func init() {
 	ctCreateCmd.Flags().StringVar(&ctCreateArch, "arch", "amd64", "container architecture")
 	ctCreateCmd.Flags().StringVar(&ctCreatePassword, "password", "", "root password (optional; omit along with --ssh-public-key-file for console-only access)")
 	ctCreateCmd.Flags().StringVar(&ctCreateSSHKeyFile, "ssh-public-key-file", "", "path to an SSH public key file to authorize for root (optional)")
+	ctCreateCmd.Flags().StringVar(&ctCreateTags, "tags", "", "comma-separated tags to apply, e.g. media,arr (optional)")
 	ctCreateCmd.Flags().BoolVar(&ctCreateStart, "start", false, "start the container after creating it (prompts if omitted)")
 	ctCmd.AddCommand(ctCreateCmd)
 }
@@ -250,6 +252,7 @@ func runCtCreate(client *api.Client, startFlagSet bool) error {
 		Arch:          ctCreateArch,
 		Password:      ctCreatePassword,
 		SSHPublicKeys: sshKeys,
+		Tags:          api.NormalizeTags(ctCreateTags),
 	}
 
 	upid, err := client.CreateContainer(context.Background(), node, params)

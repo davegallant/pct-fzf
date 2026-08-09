@@ -184,6 +184,9 @@ type Container struct {
 	Name   string `json:"name"`
 	Node   string `json:"node"`
 	Status string `json:"status"`
+	// Tags is never nil, so `-o json` emits [] rather than null for an
+	// untagged guest — a stable schema for consumers parsing the output.
+	Tags []string `json:"tags"`
 }
 
 type resourcesResponse struct {
@@ -205,6 +208,7 @@ type resourceEntry struct {
 	Storage    string    `json:"storage"`
 	PluginType string    `json:"plugintype"`
 	Shared     looseBool `json:"shared"`
+	Tags       string    `json:"tags"`
 }
 
 // looseBool decodes a JSON bool, number (0/1), or numeric/bool string
@@ -259,6 +263,7 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 			Name:   r.Name,
 			Node:   r.Node,
 			Status: r.Status,
+			Tags:   parseTags(r.Tags),
 		})
 	}
 	sort.Slice(containers, func(i, j int) bool {

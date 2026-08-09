@@ -23,6 +23,7 @@ var (
 	qmCreateSCSIHW   string
 	qmCreateOSType   string
 	qmCreateISO      string
+	qmCreateTags     string
 	qmCreateStart    bool
 )
 
@@ -51,6 +52,7 @@ func init() {
 	qmCreateCmd.Flags().StringVar(&qmCreateSCSIHW, "scsihw", "virtio-scsi-pci", "SCSI controller type")
 	qmCreateCmd.Flags().StringVar(&qmCreateOSType, "ostype", "l26", "guest OS type, e.g. l26, win11 (see Proxmox docs)")
 	qmCreateCmd.Flags().StringVar(&qmCreateISO, "iso", "", "ISO volid to attach as install media, e.g. local:iso/ubuntu-24.04.iso (optional; prompts if omitted — press enter to skip and create a disk-only VM)")
+	qmCreateCmd.Flags().StringVar(&qmCreateTags, "tags", "", "comma-separated tags to apply, e.g. media,arr (optional)")
 	qmCreateCmd.Flags().BoolVar(&qmCreateStart, "start", false, "start the VM after creating it (prompts if omitted)")
 	qmCmd.AddCommand(qmCreateCmd)
 }
@@ -166,6 +168,7 @@ func runQmCreate(client *api.Client, startFlagSet bool) error {
 		SCSIHW:     qmCreateSCSIHW,
 		OSType:     qmCreateOSType,
 		ISO:        iso,
+		Tags:       api.NormalizeTags(qmCreateTags),
 	}
 
 	upid, err := client.CreateVM(context.Background(), node, params)

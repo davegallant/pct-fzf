@@ -201,6 +201,8 @@ with `pvectl qm create`. Unlike `ct create`'s required OS template,
 empty reply to skip it and create a disk-only VM (e.g. for a later disk
 import).
 
+Both accept `--tags` (comma-separated) to tag the new guest.
+
 ### Console access
 
 `pvectl ct enter` and `pvectl qm enter` reach a guest's console one of two ways:

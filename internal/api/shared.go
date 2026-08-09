@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -69,6 +70,30 @@ func classifyPutError(err error) error {
 		}
 	}
 	return err
+}
+
+// parseTags splits /cluster/resources' tags field into a slice. Proxmox
+// sends tags semicolon-separated, omits the field entirely for an untagged
+// guest, and (unlike most fields) has no canonical ordering guarantee — so
+// the result is sorted for stable output. The returned slice is always
+// non-nil so JSON consumers see [] rather than null.
+func parseTags(s string) []string {
+	tags := []string{}
+	for _, t := range strings.Split(s, ";") {
+		if t = strings.TrimSpace(t); t != "" {
+			tags = append(tags, t)
+		}
+	}
+	sort.Strings(tags)
+	return tags
+}
+
+// NormalizeTags turns a user-supplied comma- or semicolon-separated tag
+// list into the semicolon-separated form Proxmox's create/config APIs
+// expect, dropping empties so a trailing comma isn't sent as a blank tag.
+// Exported for the create commands, which take --tags as a CLI string.
+func NormalizeTags(s string) string {
+	return strings.Join(parseTags(strings.ReplaceAll(s, ",", ";")), ";")
 }
 
 // configFromData parses the map[string]any from a GET .../config reply

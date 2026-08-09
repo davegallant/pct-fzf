@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added tag support: `--tags` on `pvectl ct create`/`pvectl qm create`, a `Tags` row in `ct summary`/`qm summary`, and a `TAGS` column in `ct list`/`qm list` shown only when something in the list is actually tagged. `-o json` always emits a `tags` array, empty when untagged. Tags are display-and-set only — there's deliberately no tag filter on list (see AGENTS.md on filtering flags). Setting or changing tags on an existing guest already works through `ct config edit`/`qm config edit`; *clearing* them does not, since deleting a line in `$EDITOR` is warned about rather than sent as a removal (a pre-existing limitation, see AGENTS.md)
 - Added `--target-storage` to `pvectl ct migrate`/`pvectl qm migrate`: migrate to a node whose storage IDs differ from the source (e.g. `pvectl ct migrate 101 --target pve-apollo --target-storage local-lvm`), accepting either a single storage ID or a `source:target,...` mapping. Matches `pct migrate --target-storage`/`qm migrate --targetstorage`; for a running VM, `with-local-disks` is sent automatically so its local disks migrate live
 - Added `pvectl qm config view`/`pvectl ct config view`: print a VM's/container's live config without opening `$EDITOR` (supports `-o json`)
 

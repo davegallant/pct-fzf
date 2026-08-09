@@ -61,14 +61,25 @@ func runQmList(client *api.Client, node string) error {
 }
 
 // renderVMList formats vms as a VMID/NAME/NODE/STATUS table from
-// already-fetched data. It performs no I/O, so it's directly
-// unit-testable — same pattern as renderContainerList.
+// already-fetched data, plus a TAGS column when any VM is tagged (see
+// anyTagged). It performs no I/O, so it's directly unit-testable — same
+// pattern as renderContainerList.
 func renderVMList(vms []api.VM) string {
+	showTags := anyTagged(vms, func(v api.VM) []string { return v.Tags })
+
 	var buf strings.Builder
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "VMID\tNAME\tNODE\tSTATUS")
+	header := "VMID\tNAME\tNODE\tSTATUS"
+	if showTags {
+		header += "\tTAGS"
+	}
+	_, _ = fmt.Fprintln(tw, header)
 	for _, v := range vms {
-		_, _ = fmt.Fprintf(tw, "%d\t%s\t%s\t%s\n", v.VMID, v.Name, v.Node, v.Status)
+		_, _ = fmt.Fprintf(tw, "%d\t%s\t%s\t%s", v.VMID, v.Name, v.Node, v.Status)
+		if showTags {
+			_, _ = fmt.Fprintf(tw, "\t%s", joinTags(v.Tags))
+		}
+		_, _ = fmt.Fprintln(tw)
 	}
 	_ = tw.Flush()
 	return buf.String()

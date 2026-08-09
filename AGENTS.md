@@ -229,6 +229,14 @@ These were each found via live debugging against a real Proxmox cluster
   surfaced as-is (same "let SSH's own error output speak for itself"
   policy as `ct enter`). This is a real UX gap versus `ct enter` (which
   always works for LXC), not something pvectl can paper over.
+- Tags are display-and-set only: `--tags` at create time, a row in
+  `summary`, a column in `list`, and editable through `config edit` (which
+  round-trips the whole config already). There is deliberately no
+  `--tag` filter on `list` or any bulk operation — that would cross the
+  "no filtering/sorting flags" line above. The `TAGS` column is rendered
+  only when at least one guest in the result set is tagged, since most
+  guests on a typical cluster are untagged and an always-on column would
+  be near-empty whitespace.
 - `enter`'s SSH target is whatever Proxmox reports as the node's name
   (e.g. `pve-g3-2`) — pvectl does not store or manage SSH connection details
   itself; it relies entirely on the user's own `~/.ssh/config` (or DNS)

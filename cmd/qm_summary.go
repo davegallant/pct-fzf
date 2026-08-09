@@ -45,6 +45,7 @@ type qmSummaryJSON struct {
 	Status     string             `json:"status"`
 	HAState    string             `json:"haState"`
 	HAManaged  bool               `json:"haManaged"`
+	Tags       []string           `json:"tags"`
 	Agent      bool               `json:"agent"`
 	CPU        float64            `json:"cpu"` // fraction 0-1
 	CPUs       int                `json:"cpus"`
@@ -85,6 +86,7 @@ func vmSummaryJSON(v api.VM, status api.VMStatus, config api.VMConfig, interface
 		Status:     status.Status,
 		HAState:    ha,
 		HAManaged:  haManaged,
+		Tags:       v.Tags,
 		Agent:      strings.HasPrefix(config.Fields["agent"], "1"),
 		CPU:        status.CPU,
 		CPUs:       status.CPUs,
@@ -121,6 +123,10 @@ func renderVMSummary(v api.VM, status api.VMStatus, config api.VMConfig, interfa
 	_, _ = fmt.Fprintf(tw, "HA State\t%s\n", ha)
 	_, _ = fmt.Fprintf(tw, "Node\t%s\n", v.Node)
 	_, _ = fmt.Fprintf(tw, "Guest Agent\t%s\n", agent)
+	// Omitted when untagged — see renderSummary.
+	if len(v.Tags) > 0 {
+		_, _ = fmt.Fprintf(tw, "Tags\t%s\n", joinTags(v.Tags))
+	}
 	_, _ = fmt.Fprintln(tw)
 	_, _ = fmt.Fprintf(tw, "CPU usage\t%s\n", formatCPUUsage(status.CPU, status.CPUs))
 	_, _ = fmt.Fprintf(tw, "Memory usage\t%s\n", formatUsage(status.Mem, status.MaxMem))

@@ -61,14 +61,25 @@ func runCtList(client *api.Client, node string) error {
 }
 
 // renderContainerList formats containers as a VMID/NAME/NODE/STATUS
-// table from already-fetched data. It performs no I/O, so it's directly
+// table from already-fetched data, plus a TAGS column when any container
+// is tagged (see anyTagged). It performs no I/O, so it's directly
 // unit-testable — same pattern as renderNodes/renderStorageReport.
 func renderContainerList(containers []api.Container) string {
+	showTags := anyTagged(containers, func(c api.Container) []string { return c.Tags })
+
 	var buf strings.Builder
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "VMID\tNAME\tNODE\tSTATUS")
+	header := "VMID\tNAME\tNODE\tSTATUS"
+	if showTags {
+		header += "\tTAGS"
+	}
+	_, _ = fmt.Fprintln(tw, header)
 	for _, c := range containers {
-		_, _ = fmt.Fprintf(tw, "%d\t%s\t%s\t%s\n", c.VMID, c.Name, c.Node, c.Status)
+		_, _ = fmt.Fprintf(tw, "%d\t%s\t%s\t%s", c.VMID, c.Name, c.Node, c.Status)
+		if showTags {
+			_, _ = fmt.Fprintf(tw, "\t%s", joinTags(c.Tags))
+		}
+		_, _ = fmt.Fprintln(tw)
 	}
 	_ = tw.Flush()
 	return buf.String()

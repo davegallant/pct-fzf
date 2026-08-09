@@ -82,6 +82,9 @@ type CreateContainerParams struct {
 	Arch          string
 	Password      string
 	SSHPublicKeys string
+	// Tags is the semicolon-separated form Proxmox expects; callers pass
+	// user input through NormalizeTags first.
+	Tags string
 }
 
 // CreateContainer creates a new LXC container on node, returning the
@@ -111,6 +114,9 @@ func (c *Client) CreateContainer(ctx context.Context, node string, p CreateConta
 	}
 	if p.SSHPublicKeys != "" {
 		form.Set("ssh-public-keys", p.SSHPublicKeys)
+	}
+	if p.Tags != "" {
+		form.Set("tags", p.Tags)
 	}
 	return c.postUPID(ctx, path, strings.NewReader(form.Encode()))
 }

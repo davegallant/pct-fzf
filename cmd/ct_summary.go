@@ -50,6 +50,7 @@ type ctSummaryJSON struct {
 	Status       string             `json:"status"`
 	HAState      string             `json:"haState"`
 	HAManaged    bool               `json:"haManaged"`
+	Tags         []string           `json:"tags"`
 	Unprivileged bool               `json:"unprivileged"`
 	CPU          float64            `json:"cpu"` // fraction 0-1
 	CPUs         int                `json:"cpus"`
@@ -103,6 +104,7 @@ func summaryJSON(c api.Container, status api.LXCStatus, config api.Config, inter
 		Status:       status.Status,
 		HAState:      ha,
 		HAManaged:    haManaged,
+		Tags:         c.Tags,
 		Unprivileged: config.Fields["unprivileged"] == "1",
 		CPU:          status.CPU,
 		CPUs:         status.CPUs,
@@ -139,6 +141,11 @@ func renderSummary(c api.Container, status api.LXCStatus, config api.Config, int
 	_, _ = fmt.Fprintf(tw, "HA State\t%s\n", ha)
 	_, _ = fmt.Fprintf(tw, "Node\t%s\n", c.Node)
 	_, _ = fmt.Fprintf(tw, "Unprivileged\t%s\n", unprivileged)
+	// Omitted entirely when untagged, rather than printed as a blank row —
+	// same "don't show an empty field" reasoning as the IPs section below.
+	if len(c.Tags) > 0 {
+		_, _ = fmt.Fprintf(tw, "Tags\t%s\n", joinTags(c.Tags))
+	}
 	_, _ = fmt.Fprintln(tw)
 	_, _ = fmt.Fprintf(tw, "CPU usage\t%s\n", formatCPUUsage(status.CPU, status.CPUs))
 	_, _ = fmt.Fprintf(tw, "Memory usage\t%s\n", formatUsage(status.Mem, status.MaxMem))
