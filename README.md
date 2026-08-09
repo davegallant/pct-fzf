@@ -218,6 +218,49 @@ it in your shell history.
 > cloud-init VM boots an imported cloud image rather than installing from
 > an ISO.
 
+### Templates and ISOs
+
+LXC OS templates can be fetched from Proxmox's appliance catalog, and ISOs
+from any URL the cluster can reach:
+
+```console
+$ pvectl templates ls
+TEMPLATE                                    OS         VERSION   DESCRIPTION
+alpine-3.23-default_20260116_amd64.tar.xz   alpine     20260116  LXC default image for alpine 3.23
+debian-13-standard_13.0-1_amd64.tar.zst     debian-13  13.0-1    Debian 13 Trixie (standard)
+
+$ pvectl templates download debian-13-standard_13.0-1_amd64.tar.zst --storage local
+✓ downloaded debian-13-standard_13.0-1_amd64.tar.zst to local (24s)
+
+$ pvectl iso download https://example.com/debian-13.iso --storage proxmox-iso
+```
+
+`pvectl templates ls --downloaded` and `pvectl iso ls` show what's already
+on storage. The node does the fetching, not pvectl, so the URL has to be
+reachable from the cluster and the transfer runs as a background task.
+
+> [!IMPORTANT]
+> Downloading needs the `Datastore.AllocateTemplate` privilege, which the
+> `PVEDatastoreUser` role in the [setup ACL](#create-an-api-token) does
+> *not* grant — a token without it fails with `Permission check failed
+> (/storage/<id>, Datastore.AllocateTemplate)`. Listing is unaffected.
+> Grant `PVEDatastoreAdmin`:
+>
+> ```sh
+> pveum aclmod /storage -token 'user@realm!tokenid' -role PVEDatastoreAdmin
+> ```
+>
+> If one storage still fails after that, check for a narrower ACL entry on
+> it. Proxmox resolves permissions most-specific-path-first, so a role
+> assigned directly on `/storage/<id>` **replaces** — rather than adds
+> to — anything inherited from `/`. A leftover `PVEDatastoreUser` on
+> `/storage/local` will keep shadowing a `PVEDatastoreAdmin` granted at
+> `/`. Check the effective privileges for a path with:
+>
+> ```sh
+> pvectl api get /access/permissions --data path=/storage/local
+> ```
+
 ### Console access
 
 `pvectl ct enter` and `pvectl qm enter` reach a guest's console one of two ways:

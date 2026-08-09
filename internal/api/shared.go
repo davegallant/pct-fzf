@@ -33,6 +33,13 @@ func (c *Client) postUPID(ctx context.Context, path string, body io.Reader) (str
 	if err := c.do(ctx, http.MethodPost, path, body, &resp); err != nil {
 		return "", err
 	}
+	if resp.Data == "" {
+		// Every endpoint routed through here is meant to return a task
+		// UPID. An empty one means the reply wasn't the shape we assumed,
+		// and handing "" onward produces a confusing failure inside task
+		// polling instead of here, where the path is still known.
+		return "", fmt.Errorf("no task id in reply from %s", path)
+	}
 	return resp.Data, nil
 }
 

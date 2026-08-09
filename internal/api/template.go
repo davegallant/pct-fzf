@@ -10,10 +10,12 @@ import (
 
 // Template is one LXC OS template (vztmpl content) found on a storage's
 // content listing.
+// JSON tags are for `pvectl templates list --downloaded -o json` — see
+// ISO for the key-style rationale.
 type Template struct {
-	VolID   string
-	Storage string
-	Size    int64
+	VolID   string `json:"volid"`
+	Storage string `json:"storage"`
+	Size    int64  `json:"size"`
 }
 
 // ListTemplates returns every vztmpl template found across storages

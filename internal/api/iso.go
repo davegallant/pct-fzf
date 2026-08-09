@@ -9,10 +9,12 @@ import (
 )
 
 // ISO is one ISO image (iso content) found on a storage's content listing.
+// JSON tags are for `pvectl iso list -o json`, matching the lowercase key
+// style every other JSON-output struct uses.
 type ISO struct {
-	VolID   string
-	Storage string
-	Size    int64
+	VolID   string `json:"volid"`
+	Storage string `json:"storage"`
+	Size    int64  `json:"size"`
 }
 
 // ListISOs is ListTemplates' mirror for ISO images: same
