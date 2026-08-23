@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +16,22 @@ import (
 var nodesCmd = &cobra.Command{
 	Use:   "nodes",
 	Short: "Manage Proxmox cluster nodes",
+}
+
+var nodesRebootYes bool
+
+var nodesRebootCmd = &cobra.Command{
+	Use:         "reboot <node>",
+	Short:       "Reboot a Proxmox node",
+	Args:        cobra.ExactArgs(1),
+	Annotations: mutationAnnotation(mutationDestructive),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client, err := loadClient()
+		if err != nil {
+			return friendlySetupError(err)
+		}
+		return runRebootNode(client, args[0], nodesRebootYes)
+	},
 }
 
 var nodesListCmd = &cobra.Command{
@@ -32,7 +50,34 @@ var nodesListCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(nodesCmd)
-	nodesCmd.AddCommand(nodesListCmd)
+	nodesCmd.AddCommand(nodesListCmd, nodesRebootCmd)
+	nodesRebootCmd.Flags().BoolVarP(&nodesRebootYes, "yes", "y", false, "skip the confirmation prompt")
+}
+
+func runRebootNode(client *api.Client, node string, skipConfirm bool) error {
+	status, err := client.ClusterStatus(context.Background())
+	if err != nil {
+		return fmt.Errorf("validating node %s: %w", node, err)
+	}
+	if _, ok := status.Nodes[node]; !ok {
+		return fmt.Errorf("node %q not found", node)
+	}
+
+	fmt.Printf("about to reboot node %s — every guest on this node will be interrupted\n", node)
+	if !skipConfirm {
+		fmt.Print("type 'yes' to confirm: ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if strings.TrimSpace(line) != "yes" {
+			fmt.Println("aborted, node not rebooted")
+			return nil
+		}
+	}
+
+	if err := client.RebootNode(context.Background(), node); err != nil {
+		return fmt.Errorf("rebooting node %s: %w", node, err)
+	}
+	fmt.Printf("reboot requested for node %s\n", node)
+	return nil
 }
 
 // runNodes fetches the two independent endpoints `pvectl nodes list` needs

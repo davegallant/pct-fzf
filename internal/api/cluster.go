@@ -4,9 +4,19 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 )
+
+// RebootNode asks Proxmox to reboot node through its status endpoint.
+// Unlike guest power actions, this endpoint returns null rather than a task
+// UPID: Proxmox schedules the host reboot after replying to the request.
+func (c *Client) RebootNode(ctx context.Context, node string) error {
+	form := url.Values{"command": {"reboot"}}
+	return c.do(ctx, http.MethodPost, fmt.Sprintf("/nodes/%s/status", node), strings.NewReader(form.Encode()), nil)
+}
 
 // ClusterStatus is derived from GET /cluster/status: cluster identity and
 // quorum (absent for a standalone, non-clustered node) plus each node's

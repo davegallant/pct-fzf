@@ -71,7 +71,37 @@ Either uncheck Privilege Separation (the token then inherits the user's
 full permissions), or grant an ACL explicitly:
 
 ```sh
-pveum aclmod / -token 'user@realm!tokenid' -role PVEVMAdmin,PVEAuditor,PVESDNUser,PVEDatastoreUser 
+pveum aclmod / -token 'user@realm!tokenid' -role PVEVMAdmin,PVEAuditor,PVESDNUser,PVEDatastoreUser
+```
+
+#### Node reboot permission
+
+`pvectl nodes reboot <node>` requires the `Sys.PowerMgmt` privilege on
+the node being rebooted. Proxmox's built-in roles above do not grant it,
+so create a small custom role and assign it to the token:
+
+```sh
+pveum role add NodePowerMgmt -privs Sys.PowerMgmt
+pveum aclmod /nodes/pve-g3-1 \
+  -token 'user@realm!tokenid' \
+  -role NodePowerMgmt
+```
+
+Replace `pve-g3-1` with the node name. Custom role IDs cannot begin with
+the case-insensitive reserved `PVE` prefix, which is why the example uses
+`NodePowerMgmt` rather than `PVEPowerMgmt`.
+
+To permit rebooting every node, add `NodePowerMgmt` to the token's existing
+comma-separated `-role` list on `/`; keep the existing roles in that list so
+the ACL update does not replace them. With Privilege Separation enabled,
+the token's owning user must also have `Sys.PowerMgmt`, since a token's
+permissions cannot exceed its owner's permissions.
+
+Node reboot always asks for a literal `yes` confirmation unless `-y` or
+`--yes` is supplied:
+
+```sh
+pvectl nodes reboot pve-g3-1
 ```
 
 ### Run setup

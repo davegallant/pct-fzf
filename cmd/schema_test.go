@@ -153,6 +153,7 @@ func TestSchemaMutationLevelsMatchKnownCommands(t *testing.T) {
 		{[]string{"ct", "exec"}, mutationDestructive},
 		{[]string{"ct", "enter"}, mutationDestructive},
 		{[]string{"qm", "enter"}, mutationDestructive},
+		{[]string{"nodes", "reboot"}, mutationDestructive},
 	} {
 		got := findSchemaCommand(cmds, tc.path...)
 		if got == nil {

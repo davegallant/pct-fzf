@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `pvectl nodes reboot <node>`: validate and reboot a Proxmox node through the API. Because every guest on the node is interrupted, it requires typing `yes` to confirm unless `-y`/`--yes` is supplied
 - Added `pvectl qm exec <name-or-vmid> -- <command>`: run a command inside a VM through the QEMU guest agent, forwarding the guest's stdout/stderr and exit status. Unlike `pvectl ct exec` (which streams over SSH), the guest-agent API is fire-and-poll — no stdin, no tty, and output only once the command exits — so interactive or long-running commands aren't a fit; `--timeout` (default 30s) bounds the wait, and the command is passed as argv with no shell, so shell syntax needs an explicit `sh -c`
 - Added `pvectl templates list/download` and `pvectl iso list/download`: fetch LXC OS templates from Proxmox's appliance catalog (`aplinfo`) and ISOs from a URL (`download-url`) straight onto a storage, with a live progress spinner. `templates list` shows the download catalog, `--downloaded` shows what's already on storage; `iso download` derives the filename from the URL unless `--filename` is given, and takes an optional `--checksum`/`--checksum-algorithm` pair
 - Added cloud-init support to `pvectl qm create`: `--ciuser`, `--cipassword` (pass `-` to read it from stdin without echo), `--sshkeys <file>`, and `--ipconfig0`. Any of these provisions a cloud-init drive on `ide2`, which is why they cannot be combined with `--iso` — both want the same bus slot, and the conflict is rejected up front by flag name

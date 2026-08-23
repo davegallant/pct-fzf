@@ -4,11 +4,95 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/davegallant/pvectl/internal/api"
 )
+
+func TestRunRebootNodeSkipConfirm(t *testing.T) {
+	var rebootBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api2/json/cluster/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{
+				{"type": "node", "name": "pve1", "online": 1},
+			}})
+		case r.URL.Path == "/api2/json/nodes/pve1/status" && r.Method == http.MethodPost:
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("ParseForm() error = %v", err)
+			}
+			rebootBody = r.Form.Encode()
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := runRebootNode(client, "pve1", true); err != nil {
+		t.Fatalf("runRebootNode() error = %v", err)
+	}
+	if rebootBody != "command=reboot" {
+		t.Errorf("reboot body = %q, want command=reboot", rebootBody)
+	}
+}
+
+func TestRunRebootNodeRejectsUnknownNodeBeforePrompt(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{
+			{"type": "node", "name": "pve1", "online": 1},
+		}})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	err := runRebootNode(client, "typo", false)
+	if err == nil || !strings.Contains(err.Error(), `node "typo" not found`) {
+		t.Fatalf("runRebootNode() error = %v, want unknown-node error", err)
+	}
+	if requestCount != 1 {
+		t.Errorf("request count = %d, want 1 validation request and no reboot", requestCount)
+	}
+}
+
+func TestRunRebootNodeRequiresYes(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{
+			{"type": "node", "name": "pve1", "online": 1},
+		}})
+	}))
+	defer server.Close()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	if _, err := w.WriteString("no\n"); err != nil {
+		t.Fatalf("writing stdin pipe: %v", err)
+	}
+	_ = w.Close()
+	originalStdin := os.Stdin
+	os.Stdin = r
+	defer func() {
+		os.Stdin = originalStdin
+		_ = r.Close()
+	}()
+
+	client := api.NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := runRebootNode(client, "pve1", false); err != nil {
+		t.Fatalf("runRebootNode() error = %v", err)
+	}
+	if requestCount != 1 {
+		t.Errorf("request count = %d, want 1 validation request and no reboot", requestCount)
+	}
+}
 
 func TestNodesCommandRegistered(t *testing.T) {
 	found, _, err := rootCmd.Find([]string{"nodes"})
@@ -17,6 +101,16 @@ func TestNodesCommandRegistered(t *testing.T) {
 	}
 	if found.Use != "nodes" {
 		t.Errorf(`Find("nodes").Use = %q, want "nodes"`, found.Use)
+	}
+	reboot, _, err := rootCmd.Find([]string{"nodes", "reboot"})
+	if err != nil {
+		t.Fatalf(`rootCmd.Find("nodes reboot") error = %v`, err)
+	}
+	if reboot.Use != "reboot <node>" {
+		t.Errorf(`Find("nodes reboot").Use = %q, want "reboot <node>"`, reboot.Use)
+	}
+	if reboot.Flag("yes") == nil || reboot.Flag("yes").Shorthand != "y" {
+		t.Error(`nodes reboot --yes/-y flag is not registered`)
 	}
 }
 

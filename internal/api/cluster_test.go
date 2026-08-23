@@ -3,10 +3,40 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+// TestClientRebootNode catches either half of the node reboot API contract
+// drifting: Proxmox expects the node-scoped status endpoint and the reboot
+// action in a form field, rather than a guest-style /status/reboot path.
+func TestClientRebootNode(t *testing.T) {
+	var gotMethod, gotPath, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": nil})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@pve!test", "secret", true)
+	if err := client.RebootNode(context.Background(), "pve1"); err != nil {
+		t.Fatalf("RebootNode() error = %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if gotPath != "/api2/json/nodes/pve1/status" {
+		t.Errorf("path = %q, want /api2/json/nodes/pve1/status", gotPath)
+	}
+	if gotBody != "command=reboot" {
+		t.Errorf("body = %q, want command=reboot", gotBody)
+	}
+}
 
 // TestLooseBoolUnmarshalJSON covers every wire shape Proxmox's "shared"
 // flag might plausibly arrive as, since it's unconfirmed against a real

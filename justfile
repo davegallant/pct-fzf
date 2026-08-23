@@ -2,6 +2,8 @@
 # compiler on systems where CGO_ENABLED defaults to 1 (e.g. no gcc in PATH).
 export CGO_ENABLED := "0"
 
+alias b := build
+
 # List available recipes
 default:
     @just --list
